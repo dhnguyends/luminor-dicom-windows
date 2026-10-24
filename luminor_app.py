@@ -30,15 +30,19 @@ import webbrowser
 from pathlib import Path
 
 APP_NAME = "Luminor"
-VERSION = "1.1"
+VERSION = "1.2"
 USER_DIR = Path(os.environ.get("APPDATA") or Path.home()) / APP_NAME
 CONFIG_FILE = USER_DIR / "config.json"
 LOG_FILE = USER_DIR / "luminor.log"
 
-# When run from source, server.py lives in the sibling Claude-Radio folder;
-# in the exe, PyInstaller bundles it as a module.
+# When run from source, server.py is in the repository root (this file is in windows/) or in
+# a sibling Claude-Radio folder; in the exe, PyInstaller bundles it as a module.
 if not getattr(sys, "frozen", False):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Claude-Radio"))
+    _here = Path(__file__).resolve().parent
+    for _src in (_here.parent, _here.parent / "Claude-Radio"):
+        if (_src / "server.py").is_file():
+            sys.path.insert(0, str(_src))
+            break
 
 
 # --------------------------------------------------------------------------- #

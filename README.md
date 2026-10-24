@@ -22,14 +22,14 @@ normal Windows application: no Python, no command line, no browser needed.
 | **Windows** | Windows 11, or Windows 10 (64-bit) |
 | **WebView2 Runtime** | Built into Windows 11. On Windows 10, install it from [Microsoft](https://developer.microsoft.com/microsoft-edge/webview2/) if Luminor opens in your browser instead of its own window. |
 | **Memory** | 8 GB RAM recommended (each open CT study uses about 100–200 MB) |
-| **Disk** | About 60 MB for Luminor (28 MB download), plus your DICOM data |
-| **Data** | CT series as DICOM files: one folder per series (see [First launch](#first-launch)) |
+| **Disk** | About 75 MB for Luminor (30 MB download), plus your DICOM data |
+| **Data** | CT or MRI exams as DICOM files: one folder per exam or series (see [First launch](#first-launch)) |
 
 Nothing else is needed: Python and all libraries are included.
 
 ## Install
 
-1. Download **[`Luminor-1.1-win64.zip`](https://github.com/dhnguyends/luminor-dicom-windows/releases/download/v1.1/Luminor-1.1-win64.zip)**
+1. Download **[`Luminor-1.2-win64.zip`](https://github.com/dhnguyends/luminor-dicom-windows/releases/download/v1.2/Luminor-1.2-win64.zip)**
    from the [releases page](https://github.com/dhnguyends/luminor-dicom-windows/releases).
 2. Right-click the zip → **Extract All…** and choose a folder you own, for example
    `C:\Users\<you>\Apps\Luminor` or `D:\Apps\Luminor`.
@@ -76,6 +76,9 @@ and acceptance of the competition rules required). Extract `stage1` and choose t
 ## Everyday use
 
 - Double-click **`Luminor.exe`** (or your shortcut). Closing the window quits Luminor.
+- **Exams with several series** (for example bone and soft-tissue reconstructions, a coronal series, or MRI sequences) show a **series bar** above the images. Use **‹ Previous** / **Next ›** (**Précédente** / **Suivante** in French), or the **P** / **N** keys, to go through the series; the drop-down jumps to any series. Luminor stays at the same anatomical position.
+- **Incomplete exams:** many CD/USB exports stop at 1,000 images. If a series seems to skip part of the body, export it again without that limit, or one series at a time.
+- Luminor displays **CT and MRI volumes**, including compressed DICOM (JPEG-LS, JPEG, JPEG 2000, RLE) and multi-frame MRI, and **2D images** (ultrasound images and cine loops, screenshots, scout views), shown one by one. An exam's **PDF reports** open from the **Report (PDF)** buttons in the series bar.
 - Press **?** in Luminor for all keyboard and mouse shortcuts.
 - The **globe button (EN / FR)** switches the interface between English and French.
 - The full illustrated user guide opens in your browser from the shortcuts sheet, or online:
@@ -144,8 +147,9 @@ PC, and images never leave it.
 | Nothing happens when I double-click | Wait a few seconds: the first start takes longer. Then check `%APPDATA%\Luminor\luminor.log`. |
 | "No series found" | Choose the folder whose **sub-folders** contain the `.dcm` files (see [First launch](#first-launch)). |
 | Luminor opens in the browser, not in a window | The WebView2 Runtime is missing: [install it](https://developer.microsoft.com/microsoft-edge/webview2/), then restart Luminor. |
-| A series does not open | It may use a compressed DICOM format that Luminor cannot decode. Details are in `luminor.log`. |
-| Opening a study is slow | Luminor reads every DICOM file the first time (a few seconds per study); the last three studies stay in memory. |
+| "No image that Luminor can display" | The folder holds only reports or unsupported files. |
+| A series does not open | It may use a DICOM format Luminor cannot decode. Details are in `luminor.log`. |
+| Opening a study is slow | The first opening reads every DICOM file of the exam (up to 15–20 s for a large compressed CT); switching series is then faster, and the last three series stay in memory. |
 | "The code execution cannot proceed…" or a missing DLL | Extract the **whole** zip again; `_internal` must stay next to `Luminor.exe`. |
 | Antivirus removed `Luminor.exe` | Restore it and add the Luminor folder to the antivirus exceptions. |
 
@@ -156,7 +160,7 @@ When asking for help, attach `%APPDATA%\Luminor\luminor.log`.
 ## Building from source
 
 For developers who want to rebuild `Luminor.exe`. The source code is at
-<https://github.com/dhnguyends/luminor-dicom>; this `Win11` folder holds the Windows packaging.
+<https://github.com/dhnguyends/luminor-dicom>; this repository holds the Windows packaging (also kept in the `windows/` folder of luminor-dicom).
 
 ### Tools
 
@@ -166,35 +170,37 @@ For developers who want to rebuild `Luminor.exe`. The source code is at
 | PyInstaller | <https://pyinstaller.org/> | Packs Python and Luminor into `Luminor.exe` |
 | pywebview | <https://pywebview.flowrl.com/> | Native app window (Edge WebView2) |
 | NumPy, pydicom | <https://numpy.org/> · <https://pydicom.github.io/> | Luminor's libraries |
+| pyjpegls, pylibjpeg (+ libjpeg, openjpeg, rle plugins) | <https://pypi.org/project/pyjpegls/> · <https://pypi.org/project/pylibjpeg/> | Decoders for compressed DICOM (JPEG-LS, JPEG, JPEG 2000, RLE) |
 | Pillow | <https://python-pillow.org/> | Draws the app icon at build time (not bundled) |
 | Git | <https://git-scm.com/download/win> | Source code |
 
 ### Steps
 
 ```powershell
-# 1. Get the source code next to this Win11 folder (as .\Claude-Radio)
+# 1. Get the source code and this packaging side by side
 git clone https://github.com/dhnguyends/luminor-dicom.git Claude-Radio
+git clone https://github.com/dhnguyends/luminor-dicom-windows.git
 
 # 2. Create the build environment (once)
 conda create -n luminor-build python=3.11 -y
-conda run -n luminor-build pip install pyinstaller pywebview numpy pydicom pillow
+conda run -n luminor-build pip install pyinstaller pywebview numpy pydicom pillow pyjpegls pylibjpeg pylibjpeg-libjpeg pylibjpeg-openjpeg pylibjpeg-rle
 
 # 3. Build
-cd Win11
+cd luminor-dicom-windows
 powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-Output in `Win11\dist\`:
+Output in `dist\` (not committed to Git; published as GitHub Releases):
 
 - `Luminor\Luminor.exe` with its `_internal\` folder, `Choose data folder.cmd` and this README;
-- `Luminor-1.1-win64.zip`, ready to share.
+- `Luminor-1.2-win64.zip`, ready to share.
 
 ### Files in this folder
 
 | File | Role |
 |---|---|
 | `luminor_app.py` | Desktop launcher: data-folder picker, local server on a free port, app window, browser fallback, `%APPDATA%` storage, logging |
-| `luminor.spec` | PyInstaller recipe: bundles `server.py`, `static/`, `docs/`, LICENSE and NOTICE from `..\Claude-Radio` |
+| `luminor.spec` | PyInstaller recipe: bundles `server.py`, `static/`, `docs/`, LICENSE and NOTICE from `..\Claude-Radio` (or from the parent folder when used as luminor-dicom's `windows/`) |
 | `make_icon.py` | Draws `assets\luminor.ico` (same design as the web favicon) |
 | `assets\version_info.txt` | Version, description and copyright shown in the exe's Properties |
 | `build.ps1` | Runs the three steps above and creates the zip |

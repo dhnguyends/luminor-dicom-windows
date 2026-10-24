@@ -5,22 +5,37 @@
 # triggers fewer antivirus false positives than a single-file exe.
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_submodules
+from PyInstaller.utils.hooks import collect_all, collect_submodules, copy_metadata
 
 HERE = Path(SPECPATH)
-SOURCE = HERE.parent / "Claude-Radio"  # Luminor source code (server.py, static/, docs/)
+# Luminor source code (server.py, static/, docs/): the repository root when this folder is
+# luminor-dicom/windows, or a sibling "Claude-Radio" folder in the original project layout.
+SOURCE = next(p for p in (HERE.parent, HERE.parent / "Claude-Radio") if (p / "server.py").is_file())
+
+# Decoders for compressed DICOM (JPEG-LS, JPEG, JPEG 2000, RLE). pylibjpeg finds its
+# plugins through package metadata (entry points), so the metadata must be bundled too.
+decoder_datas, decoder_binaries, decoder_imports = [], [], []
+for package in ("pylibjpeg", "libjpeg", "openjpeg", "rle", "jpeg_ls"):
+    d, b, h = collect_all(package)
+    decoder_datas += d
+    decoder_binaries += b
+    decoder_imports += h
+for dist in ("pylibjpeg", "pylibjpeg-libjpeg", "pylibjpeg-openjpeg", "pylibjpeg-rle", "pyjpegls"):
+    decoder_datas += copy_metadata(dist)
 
 a = Analysis(
     [str(HERE / "luminor_app.py")],
     pathex=[str(SOURCE)],
+    binaries=decoder_binaries,
     datas=[
         (str(SOURCE / "static"), "static"),
         (str(SOURCE / "docs"), "docs"),
         (str(SOURCE / "LICENSE"), "."),
         (str(SOURCE / "NOTICE"), "."),
+        *decoder_datas,
     ],
     # server.py is imported at run time; pydicom loads pixel decoders as plugins
-    hiddenimports=["server", *collect_submodules("pydicom.pixels")],
+    hiddenimports=["server", *collect_submodules("pydicom.pixels"), *decoder_imports],
     excludes=["matplotlib", "scipy", "pandas", "IPython", "pytest", "PIL"],
     noarchive=False,
 )
